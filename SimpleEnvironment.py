@@ -83,7 +83,10 @@ class SimpleEnvironment(object):
 
     def ConstructActions(self):
         MOVE_DURATION = 1.0
-        ROTATE_DURATION = 1.0
+
+        # Wheel dimensions
+        R = 0.2
+        L = 0.5
 
         # Actions is a dictionary that maps orientation of the robot to
         #  an action set
@@ -100,22 +103,23 @@ class SimpleEnvironment(object):
 
             # Add four types of actions
             # Move forward
-            control = Control(1,1,MOVE_DURATION)
+            control = Control(1.,1.,MOVE_DURATION)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
             # Move backward
-            control = Control(-1,-1,MOVE_DURATION)
+            control = Control(-1.,-1.,MOVE_DURATION)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
+            rotate_duration = (numpy.pi / 2.) / (1. * R / L)
             # Rotate left
-            control = Control(-1,1,ROTATE_DURATION)
+            control = Control(-1.,1., rotate_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
             # Rotate right
-            control = Control(1,-1,ROTATE_DURATION)
+            control = Control(1.,-1., rotate_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
