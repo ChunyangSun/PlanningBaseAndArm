@@ -62,7 +62,8 @@ class DiscreteEnvironment(object):
 
         # Grid to index basis
         #self.to_dec(100.0)/self.resolution #max(self.to_dec(100.0)/self.resolution,max(self.num_cells))
-        self.basis_len = self.to_dec(max(self.num_cells))
+        #self.basis_len = self.to_dec(max(self.num_cells))
+        self.basis_len = self.to_dec(100.0)/min(self.resolution)
         if self.USE_DECIMAL_CLASS:
             self.basis_len = self.basis_len.to_integral()
         else:

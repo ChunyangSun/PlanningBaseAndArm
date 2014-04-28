@@ -1,6 +1,7 @@
 import numpy
 from time import time
 import pylab as pl
+from SimpleEnvironment import Action, Control
 
 class AStarPlanner(object):
 
@@ -17,11 +18,11 @@ class AStarPlanner(object):
         dist = self.cost_optimal[parent]
         # NOTE: in current implementation in could be just dist += 1
         # for a simple environment
-        dist += self.planning_env.discrete_env.resolution # self.planning_env.ComputeHeuristicCost(parent, cur) #self.planning_env.discrete_env.resolution #self.planning_env.ComputeHeuristicCost(parent, cur)
+        dist += self.planning_env.discrete_env.to_dec(self.planning_env.ComputeDistance(parent, cur))
         return dist
 
     def cost_to_go(self, cur, goal):
-        return self.planning_env.ComputeHeuristicCost(cur, goal)
+        return self.planning_env.discrete_env.to_dec(self.planning_env.ComputeHeuristicCost(cur, goal))
 
 
     # AStar planner
@@ -29,13 +30,13 @@ class AStarPlanner(object):
     #  of dimension k x n where k is the number of waypoints
     #  and n is the dimension of the robots configuration space
     def Plan(self, start_config, goal_config):
-        
+
         if self.visualize and hasattr(self.planning_env, 'InitializePlot'):
             self.planning_env.InitializePlot(goal_config)
             showPath = True
         else:
             showPath = False
-        
+
         print "AStar planner started"
         start_time = time()
 
@@ -53,7 +54,7 @@ class AStarPlanner(object):
         # Start from start node
         self.visited.add(start)
         self.cost_optimal[start] = denv.to_dec(0.0)
-        self.came_from[start] = -1
+        self.came_from[start] = [-1, Action(Control(0,0,0), [start_config])]
         Q[start] = self.cost_to_go(start,goal)
 
         # And process nodes in the order of heuristic cost
@@ -70,7 +71,9 @@ class AStarPlanner(object):
             if (cur == goal):
                 break
 
-            for n in self.planning_env.GetSuccessors(cur):
+            for succ in self.planning_env.GetSuccessors(cur):
+                n = succ.node_id
+                act = succ.action
                 #raw_input("Successor...")
                 if (n not in self.visited):
                     # Add new nodes
@@ -79,41 +82,43 @@ class AStarPlanner(object):
 
                     self.visited.add(n)
                     self.cost_optimal[n] = self.cost_to_come(cur, n)
-                    self.came_from[n] = cur
+                    self.came_from[n] = [cur, act]
                     Q[n] = cost_heur
                     # if self.cost_optimal[n] == 0: import IPython; IPython.embed();
                     #print "1: ", n, cost_heur, self.cost_optimal[n]
-                    # print "new ", cost_heur
+                    #print "new ", cost_heur
                     if showPath:
                         penv.PlotEdge(denv.NodeIdToConfiguration(cur), denv.NodeIdToConfiguration(n))
                 else:
                     # Update optimal cost for known nodes
                     if (self.cost_to_come(cur,n) < self.cost_optimal[n]):
                         self.cost_optimal[n] = self.cost_to_come(cur,n)
-                        self.came_from[n] = cur
+                        self.came_from[n] = [cur, act]
                         Q[n] = self.cost_optimal[n] + self.cost_to_go(n,goal)
                         #print "2: ", n, self.cost_optimal[n] + self.cost_to_go(n,goal), self.cost_optimal[n]
-                        # print "updated ", Q[n]
+                        #print "updated ", Q[n]
                         if showPath:
                             penv.PlotEdge(denv.NodeIdToConfiguration(cur), denv.NodeIdToConfiguration(n))
 
+        print start, goal
+
         # Reconstruct path
-        plan_id = [goal]
+        plan_act = [self.came_from[goal][1]]
         x = goal
 
         while (x != start):
             if showPath:
                 penv.PlotEdge2(denv.NodeIdToConfiguration(x), denv.NodeIdToConfiguration(self.came_from[x]))
-            x = self.came_from[x]
-            plan_id.append(x)
+            x = self.came_from[x][0]
+            plan_act.append(self.came_from[x][1])
 
         if showPath:
             pl.draw()
 
         plan_arr = []
 
-        for i in reversed(plan_id):
-            plan_arr.append(self.planning_env.discrete_env.NodeIdToConfiguration(i))
+        for i in reversed(plan_act):
+            plan_arr.append(i)
 
         plan = numpy.array(plan_arr)
 

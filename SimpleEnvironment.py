@@ -13,14 +13,21 @@ class Action(object):
         self.control = control
         self.footprint = footprint
 
+class Successor(object):
+    def __init__(self, node_id, action):
+        self.node_id = node_id
+        self.action = action
+
 class SimpleEnvironment(object):
 
     def __init__(self, herb, resolution):
         self.herb = herb
         self.robot = herb.robot
+        self.env = self.robot.GetEnv()
+        self.table = self.env.GetBodies()[1] # table
         self.boundary_limits = [[-5., -5., -numpy.pi], [5., 5., numpy.pi]]
-        lower_limits, upper_limits = self.boundary_limits
-        self.discrete_env = DiscreteEnvironment(resolution, lower_limits, upper_limits)
+        self.lower_limits, self.upper_limits = self.boundary_limits
+        self.discrete_env = DiscreteEnvironment(resolution, self.lower_limits, self.upper_limits)
 
         self.resolution = resolution
         self.ConstructActions()
@@ -82,11 +89,11 @@ class SimpleEnvironment(object):
         pl.show()
 
     def ConstructActions(self):
-        MOVE_DURATION = 1.0
+        MOVE_DURATION = 0.1
 
         # Wheel dimensions
-        R = 0.2
-        L = 0.5
+        R = self.herb.wheel_radius
+        L = self.herb.wheel_distance
 
         # Actions is a dictionary that maps orientation of the robot to
         #  an action set
@@ -112,7 +119,7 @@ class SimpleEnvironment(object):
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
-            rotate_duration = (numpy.pi / 2.) / (1. * R / L)
+            rotate_duration = (self.resolution[2]) / (1. * R / L)
             # Rotate left
             control = Control(-1.,1., rotate_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
@@ -123,35 +130,82 @@ class SimpleEnvironment(object):
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
+    # Return list of successor objects = node_id + action
     def GetSuccessors(self, node_id):
 
         successors = []
 
-        # TODO: Here you will implement a function that looks
-        #  up the configuration associated with the particular node_id
-        #  and return a list of node_ids and controls that represent the neighboring
-        #  nodes
+        coord = self.discrete_env.NodeIdToGridCoord(node_id);
+        config = self.discrete_env.NodeIdToConfiguration(node_id);
+
+        # For each action check whether generated footprint is collision free
+        for action in self.actions[coord[2]]:
+            has_collision = False
+            for fp in action.footprint:
+                fp_config = fp
+                fp_config[0] += config[0]
+                fp_config[1] += config[1]
+                if (not self.isValidConfig(fp_config)):
+                    has_collision = True
+                    break
+
+            if (not has_collision):
+                fp_config = action.footprint[-1]
+                fp_config[0] += config[0]
+                fp_config[1] += config[1]
+                successors.append(Successor(self.discrete_env.ConfigurationToNodeId(fp_config), action))
 
         return successors
 
+    def isValidConfig(self, config):
+
+        env = self.robot.GetEnv()
+
+        limits_valid = not ((config < self.lower_limits).any() or (config > self.upper_limits).any())
+
+        if limits_valid:
+            with env:
+                # Check for collision
+                pose = self.robot.GetTransform()
+                pose[0][3] = config[0]
+                pose[1][3] = config[1]
+                self.robot.SetTransform(pose)
+                collide_free = not (env.CheckCollision(self.robot, self.table))
+        else:
+            collide_free = False
+
+        returnVal = limits_valid and collide_free
+
+        return returnVal
+
+
+
     def ComputeDistance(self, start_id, end_id):
+        # Compute XY euclidean distance
 
         dist = 0
 
-        # TODO: Here you will implement a function that
-        # computes the distance between the configurations given
-        # by the two node ids
+        start_config = self.discrete_env.NodeIdToConfiguration(start_id)[:1]
+        end_config = self.discrete_env.NodeIdToConfiguration(end_id)[:1]
+
+        dist = numpy.linalg.norm(end_config - start_config)
 
         return dist
 
     def ComputeHeuristicCost(self, start_id, goal_id):
 
+        # Calculates Manhattan distance as heuristic measure
         cost = 0
 
-        # TODO: Here you will implement a function that
-        # computes the heuristic cost between the configurations
-        # given by the two node ids
+        start_coord = self.discrete_env.NodeIdToGridCoord(start_id)
+        goal_coord  = self.discrete_env.NodeIdToGridCoord(goal_id)
 
+        diffCoord = goal_coord - start_coord
+
+        for i in range(len(diffCoord)):
+            cost = cost + abs(diffCoord[i])
+            cost = cost * self.discrete_env.resolution[i]
 
         return cost
+
 
