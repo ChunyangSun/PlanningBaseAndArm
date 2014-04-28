@@ -56,13 +56,13 @@ class DiscreteEnvironment(object):
         # Figure out the number of grid cells that are in each dimension
         self.num_cells = self.dimension*[0]
         for idx in range(self.dimension):
-            self.num_cells[idx] = np.ceil((upper_limits[idx] - lower_limits[idx])/self.resolution[idx])
+            self.num_cells[idx] = np.ceil((upper_limits[idx] - lower_limits[idx])/float(self.resolution[idx]))
 
         self.dtype_num_cells = self.to_dec(self.num_cells)
 
         # Grid to index basis
         #self.to_dec(100.0)/self.resolution #max(self.to_dec(100.0)/self.resolution,max(self.num_cells))
-        self.basis_len = max(self.num_cells)
+        self.basis_len = self.to_dec(max(self.num_cells))
         if self.USE_DECIMAL_CLASS:
             self.basis_len = self.basis_len.to_integral()
         else:
