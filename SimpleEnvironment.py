@@ -72,6 +72,28 @@ class SimpleEnvironment(object):
 
         return footprint
 
+    def GenerateControlResultConfig(self, start_config, control):
+        ul = control.ul
+        ur = control.ur
+        dt = control.dt
+
+        config = start_config.copy()
+
+        xdot = 0.5 * self.herb.wheel_radius * (ul + ur) * numpy.cos(config[2])
+        ydot = 0.5 * self.herb.wheel_radius * (ul + ur) * numpy.sin(config[2])
+        tdot = self.herb.wheel_radius * (ul - ur) / self.herb.wheel_distance
+
+        config += dt * numpy.array([xdot, ydot, tdot])
+
+        coord = self.discrete_env.ConfigurationToGridCoord(config)
+        coord[2] = coord[2] % self.discrete_env.num_cells[2]
+
+        config = self.discrete_env.GridCoordToConfiguration(coord)
+
+        return config
+
+
+
     def PlotActionFootprints(self, idx):
 
         actions = self.actions[idx]
@@ -89,7 +111,7 @@ class SimpleEnvironment(object):
         pl.show()
 
     def ConstructActions(self):
-        MOVE_DURATION = 0.1
+        MOVE_DURATION = 0.5
 
         # Wheel dimensions
         R = self.herb.wheel_radius
@@ -103,7 +125,7 @@ class SimpleEnvironment(object):
         grid_coordinate = self.discrete_env.ConfigurationToGridCoord(wc)
 
         # Iterate through each possible starting orientation
-        for idx in range(int(self.discrete_env.num_cells[2])):
+        for idx in range(int(self.discrete_env.num_cells[2])+1):
             self.actions[idx] = []
             grid_coordinate[2] = idx
             start_config = self.discrete_env.GridCoordToConfiguration(grid_coordinate)
@@ -119,7 +141,7 @@ class SimpleEnvironment(object):
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
-            rotate_duration = (self.resolution[2]) / (1. * R / L)
+            rotate_duration = (self.resolution[2]) / (2. * R / L)
             # Rotate left
             control = Control(-1.,1., rotate_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
@@ -142,7 +164,7 @@ class SimpleEnvironment(object):
         for action in self.actions[coord[2]]:
             has_collision = False
             for fp in action.footprint:
-                fp_config = fp
+                fp_config = fp.copy()
                 fp_config[0] += config[0]
                 fp_config[1] += config[1]
                 if (not self.isValidConfig(fp_config)):
@@ -150,9 +172,7 @@ class SimpleEnvironment(object):
                     break
 
             if (not has_collision):
-                fp_config = action.footprint[-1]
-                fp_config[0] += config[0]
-                fp_config[1] += config[1]
+                fp_config = self.GenerateControlResultConfig(config, action.control)
                 successors.append(Successor(self.discrete_env.ConfigurationToNodeId(fp_config), action))
 
         return successors
@@ -167,8 +187,12 @@ class SimpleEnvironment(object):
             with env:
                 # Check for collision
                 pose = self.robot.GetTransform()
-                pose[0][3] = config[0]
-                pose[1][3] = config[1]
+                pose[0:3,3] = numpy.array([config[0], config[1], 0.0])
+
+                a = config[2]
+                rot = numpy.array([[numpy.cos(a), -numpy.sin(a),0.0],[numpy.sin(a),numpy.cos(a),0.0],[0.0,0.0,1.0]])
+                pose[0:3,0:3] = rot
+
                 self.robot.SetTransform(pose)
                 collide_free = not (env.CheckCollision(self.robot, self.table))
         else:
