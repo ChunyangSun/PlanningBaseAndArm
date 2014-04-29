@@ -18,7 +18,7 @@ class AStarPlanner(object):
         dist = self.cost_optimal[parent]
         # NOTE: in current implementation in could be just dist += 1
         # for a simple environment
-        dist += self.planning_env.discrete_env.to_dec(self.planning_env.ComputeDistance(parent, cur))
+        dist += self.planning_env.discrete_env.to_dec(self.planning_env.ComputeHeuristicCost(parent, cur))
         return dist
 
     def cost_to_go(self, cur, goal):
