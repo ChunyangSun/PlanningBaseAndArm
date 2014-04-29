@@ -218,28 +218,30 @@ class SimpleEnvironment(object):
 
     def ComputeHeuristicCost(self, start_id, goal_id):
 
-        cost = 0
+#        cost = 0
+#
+#        start_config = self.discrete_env.NodeIdToConfiguration(start_id)
+#        end_config = self.discrete_env.NodeIdToConfiguration(goal_id)
+#
+#        dxy = (end_config - start_config)[:2]
+#        cost = numpy.linalg.norm(dxy)
+#        cost += numpy.fabs(end_config[2] - start_config[2])
 
-        start_config = self.discrete_env.NodeIdToConfiguration(start_id)
-        end_config = self.discrete_env.NodeIdToConfiguration(goal_id)
-
-        dxy = (end_config - start_config)[:2]
-        cost = numpy.linalg.norm(dxy)
-
+#        ANGLE_WEIGHT = 0.0
 #        alpha = numpy.arctan2(dxy[1], dxy[0])
-#        cost += numpy.fabs(alpha - start_config[2])
+#        cost += numpy.fabs(alpha + start_config[2]) * ANGLE_WEIGHT
 
         # Calculates Manhattan distance as heuristic measure
-        #cost = 0
+        cost = 0
 
-        #start_coord = self.discrete_env.NodeIdToGridCoord(start_id)[:1]
-        #goal_coord  = self.discrete_env.NodeIdToGridCoord(goal_id)[:1]
+        start_coord = self.discrete_env.NodeIdToGridCoord(start_id)[:2]
+        goal_coord  = self.discrete_env.NodeIdToGridCoord(goal_id)[:2]
 
-        #diffCoord = goal_coord - start_coord
+        diffCoord = goal_coord - start_coord
 
-        #for i in range(len(diffCoord)):
-        #    cost = cost + abs(diffCoord[i])
-        #    cost = cost * self.discrete_env.resolution[i]
+        for i in range(len(diffCoord)):
+            cost = cost + abs(diffCoord[i])
+            cost = cost * self.discrete_env.resolution[i]
 
         return cost
 
