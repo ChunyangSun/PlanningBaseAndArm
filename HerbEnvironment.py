@@ -9,14 +9,14 @@ class HerbEnvironment(object):
         self.robot = herb.robot
 
         # add a table and move the robot into place
-        table = self.robot.GetEnv().ReadKinBodyXMLFile('models/objects/table.kinbody.xml')
-        self.robot.GetEnv().Add(table)
+        # table = self.robot.GetEnv().ReadKinBodyXMLFile('models/objects/table.kinbody.xml')
+        # self.robot.GetEnv().Add(table)
 
-        table_pose = np.array([[ 0, 0, -1, 0.7], 
-                                  [-1, 0,  0, 0], 
-                                  [ 0, 1,  0, 0], 
-                                  [ 0, 0,  0, 1]])
-        table.SetTransform(table_pose)
+        # table_pose = np.array([[ 0, 0, -1, 0.7], 
+        #                           [-1, 0,  0, 0], 
+        #                           [ 0, 1,  0, 0], 
+        #                           [ 0, 0,  0, 1]])
+        # table.SetTransform(table_pose)
 
         # set the camera
         camera_pose = np.array([[ 0.3259757 ,  0.31990565, -0.88960678,  2.84039211],

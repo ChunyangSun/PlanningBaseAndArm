@@ -9,6 +9,8 @@ from SimpleEnvironment import SimpleEnvironment
 from GraspPlanner import GraspPlanner
 from AStarPlanner import AStarPlanner
 # TODO: Import the applicable RRTPlanner
+from RRTConnectPlanner import RRTConnectPlanner
+import IPython
 
 if __name__ == "__main__":
     
@@ -67,7 +69,7 @@ if __name__ == "__main__":
     robot.ikmodel = openravepy.databases.inversekinematics.InverseKinematicsModel(robot, iktype=openravepy.IkParameterization.Type.Transform6D)
     if not robot.ikmodel.load():
         robot.ikmodel.autogenerate()
-
+    
     # Create environments for planning the arm and base
     resolution = [args.hres, args.hres, args.tres]
     herb = HerbRobot(env, robot, args.manip)
@@ -76,13 +78,13 @@ if __name__ == "__main__":
     base_env = SimpleEnvironment(herb_base, resolution)
 
     base_planner = AStarPlanner(base_env, visualize = False)
-    arm_planner = None
+    arm_planner = RRTConnectPlanner(arm_env, visualize = False)
     # TODO: Here initialize your arm planner
   
     # add a table and move the robot into place
-    table = env.ReadKinBodyXMLFile('models/objects/table.kinbody.xml')
-    env.Add(table)
-    
+    table = herb.robot.GetEnv().ReadKinBodyXMLFile('models/objects/table.kinbody.xml')
+    herb.robot.GetEnv().Add(table)
+
     table_pose = numpy.array([[ 0, 0, -1, 0.7], 
                               [-1, 0,  0, 0], 
                               [ 0, 1,  0, 0], 

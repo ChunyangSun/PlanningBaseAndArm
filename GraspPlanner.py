@@ -2,7 +2,7 @@ import logging, numpy, openravepy
 
 class GraspModel(object):
     """ assorted functions for getting best score grasps from hw1_grasp """
-    def __init__(robot, obj):
+    def __init__(self, robot, obj):
         self.s = [0, 0] # singmaMin range
         self.v = [0, 0] # volumeG range
         self.i = [0, 0] # isotropy range
@@ -13,10 +13,12 @@ class GraspModel(object):
         self.gmodel = openravepy.databases.grasping.GraspingModel(self.robot, self.obj)
 
         if not self.gmodel.load():
-          self.gmodel.autogenerate(options)
+          self.gmodel.autogenerate()
 
         self.graspindices = self.gmodel.graspindices
         self.grasps = self.gmodel.grasps
+        self.grasps_ordered = self.grasps.copy() #you should change the order of self.grasps_ordered
+
 
     def order_grasps(self):
         """ order the grasps - call eval grasp on each, set the 'performance' index, and sort 
@@ -24,8 +26,6 @@ class GraspModel(object):
             sort the scores from high to low 
             output: a list of grasps starting from the best 
         """
-
-        self.grasps_ordered = self.grasps.copy() #you should change the order of self.grasps_ordered
 
         # get raw scores before sorting
         self.get_raw_score_range()
@@ -97,7 +97,24 @@ class GraspModel(object):
             #you get here if there is a failure in planning
             #example: if the hand is already intersecting the object at the initial position/orientation
             return [0.00, 0.00, 0.00]
-
+    #displays the grasp
+    def show_grasp(self, grasp, delay=1.5):
+        with openravepy.RobotStateSaver(self.gmodel.robot):
+          with self.gmodel.GripperVisibility(self.gmodel.manip):
+            time.sleep(0.1) # let viewer update?
+            try:
+              with self.env:
+                contacts,finalconfig,mindist,volume = self.gmodel.testGrasp(grasp=grasp,translate=True,forceclosure=True)
+                #if mindist == 0:
+                # print 'grasp is not in force closure!'
+                contactgraph = self.gmodel.drawContacts(contacts) if len(contacts) > 0 else None
+                self.gmodel.robot.GetController().Reset(0)
+                self.gmodel.robot.SetDOFValues(finalconfig[0])
+                self.gmodel.robot.SetTransform(finalconfig[1])
+                self.env.UpdatePublishedBodies()
+                time.sleep(delay)
+            except openravepy.planning_error,e:
+              print 'bad grasp!',e
 
 class GraspPlanner(object):
 
@@ -107,31 +124,91 @@ class GraspPlanner(object):
         self.arm_planner = arm_planner
 
     def GetBasePoseForObjectGrasp(self, obj):
-
         # Load grasp database
-        model = GraspModel(self.robot, obj)
-        for i in range(2):
-            print 'Showing grasp ', i
-            model.show_grasp(robo.grasps_ordered[i], delay=delay)
+        graspModel = GraspModel(self.robot, obj)
+        graspModel.order_grasps()
 
-        print "using grasp 0 to generate Transform "
-        grasp_transform = gmodel.getGlobalGraspTransform(robo.grasps_ordered[0],collisionfree=True) # get the grasp transform
+        for i in range(6):
+            print 'Showing grasp ', i
+            graspModel.show_grasp(graspModel.grasps_ordered[i], delay=delay)
+            print "using grasp 0 to generate Transform "
+            Tgrasp = graspModel.gmodel.getGlobalGraspTransform(graspModel.grasps_ordered[i], collisionfree=True) # get the grasp transform
+            if Tgrasp != None:
+                break
 
         base_pose = None
         grasp_config = None
+
+        IPython.embed()
        
         ###################################################################
         # TODO: Here you will fill in the function to compute
         #  a base pose and associated grasp config for the 
         #  grasping the bottle
         ###################################################################
+        ikmodel = openravepy.databases.inversereachability.InverseReachabilityModel(robot)
 
+        loaded = ikmodel.load()
+        densityfn,samplerfn,bounds = self.irmodel.computeBaseDistribution(Tgrasp)
+        # densityfn: gaussian kernel density function taking poses of openrave quaternion type, returns probabilities
+        # samplerfn: gaussian kernel sampler function taking number of sample and weight, returns robot base poses and joint states
+        # bounds: 2x3 array, bounds of samples, [[min rotation, min x, min y],[max rotation, max x, max y]]
+
+        goals = []
+        numfailures = 0
+        starttime = time.time()
+        timeout = 5000
+        with self.robot:
+            while len(goals) < N:
+                if time.time()-starttime > timeout:
+                    break
+                poses,jointstate = samplerfn(N-len(goals))
+                for pose in poses:
+                    self.robot.SetTransform(pose)
+                    self.robot.SetDOFValues(*jointstate)
+                    # validate that base is not in collision
+                    if not self.manip.CheckIndependentCollision(CollisionReport()):
+                        q = self.manip.FindIKSolution(Tgrasp,filteroptions=IkFilterOptions.CheckEnvCollisions)
+                        if q is not None:
+                            values = self.robot.GetDOFValues()
+                            values[self.manip.GetArmIndices()] = q
+                            goals.append((Tgrasp,pose,values))
+                        elif self.manip.FindIKSolution(Tgrasp,0) is None:
+                            numfailures += 1
         
+        print 'showing %d results'%N
+        for ind,goal in enumerate(goals):
+            raw_input('press ENTER to show goal %d'%ind)
+            Tgrasp,pose,values = goal
+            self.robot.SetTransform(pose)
+            self.robot.SetDOFValues(values)
+        
+        IPython.embed()
+
+        transparency = .8
+        with self.env:
+            self.env.Remove(self.robot)
+            newrobots = []
+            for goal in goals:
+                Tgrasp,T,values = goal
+                newrobot = RaveCreateRobot(self.env,self.robot.GetXMLId())
+                newrobot.Clone(self.robot,0)
+                newrobot.SetName(self.robot.GetName())
+                for link in newrobot.GetLinks():
+                    for geom in link.GetGeometries():
+                        geom.SetTransparency(transparency)
+                self.env.Add(newrobot,True)
+                with self.env:
+                    newrobot.SetTransform(T)
+                    newrobot.SetDOFValues(values)
+                newrobots.append(newrobot)
+
+
         # get right arm as manip 
         self.armmanip = self.robot.GetManipulator('right_wam')
         self.robot.SetActiveManipulator('right_wam')
         # generate IK solution 
-        armIKSol = self.armmanip.FindIKSolution(grasp_transform, IkFilterOptions.CheckEnvCollisions) # get collision-free solution
+        armIKSol = self.armmanip.FindIKSolution(grasp_transform, openravepy.IkFilterOptions.CheckEnvCollisions) # get collision-free solution
         grasp_config = robot.GetDOFValues(armIKSol, self.armmanip.GetArmIndices()) # set the current solution
 
         # get base as manip 
