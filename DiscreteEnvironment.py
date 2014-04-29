@@ -56,7 +56,7 @@ class DiscreteEnvironment(object):
         # Figure out the number of grid cells that are in each dimension
         self.num_cells = self.dimension*[0]
         for idx in range(self.dimension):
-            self.num_cells[idx] = np.ceil((upper_limits[idx] - lower_limits[idx])/float(self.resolution[idx]))
+            self.num_cells[idx] = np.floor((upper_limits[idx] - lower_limits[idx])/float(self.resolution[idx]))
 
         self.dtype_num_cells = self.to_dec(self.num_cells)
 
