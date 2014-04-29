@@ -65,6 +65,7 @@ if __name__ == "__main__":
 
     planner = AStarPlanner(base_env, visualize=False)
     plan = planner.Plan(start_config, goal_config)
+    robot.SetTransform(tgoal)
     traj = herb_base.ConvertPlanToTrajectory(plan)
 
     raw_input('Press any key to play trajectory')
