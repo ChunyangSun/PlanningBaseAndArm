@@ -111,8 +111,6 @@ class SimpleEnvironment(object):
         pl.show()
 
     def ConstructActions(self):
-        MOVE_DURATION = 0.5
-
         # Wheel dimensions
         R = self.herb.wheel_radius
         L = self.herb.wheel_distance
@@ -131,13 +129,23 @@ class SimpleEnvironment(object):
             start_config = self.discrete_env.GridCoordToConfiguration(grid_coordinate)
 
             # Add four types of actions
+
+            move_config = [0.,0.,0.]
+            dt = 1.0
+            while numpy.linalg.norm(move_config[:2]) == 0:
+                move_config = self.GenerateControlResultConfig(start_config, Control(1.,1.,dt))
+                dt += 1.0
+            dt_x = move_config[0]/self.resolution[0]
+            dt_y = move_config[1]/self.resolution[1]
+            move_duration = 1. / max(abs(dt_x), abs(dt_y))
+
             # Move forward
-            control = Control(1.,1.,MOVE_DURATION)
+            control = Control(1.,1.,move_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
             # Move backward
-            control = Control(-1.,-1.,MOVE_DURATION)
+            control = Control(-1.,-1.,move_duration)
             action = Action(control, self.GenerateFootprintFromControl(start_config,control))
             self.actions[idx].append(action)
 
@@ -218,6 +226,7 @@ class SimpleEnvironment(object):
 
     def ComputeHeuristicCost(self, start_id, goal_id):
 
+        return self.ComputeDistance(start_id, goal_id)
 #        cost = 0
 #
 #        start_config = self.discrete_env.NodeIdToConfiguration(start_id)
@@ -232,17 +241,17 @@ class SimpleEnvironment(object):
 #        cost += numpy.fabs(alpha + start_config[2]) * ANGLE_WEIGHT
 
         # Calculates Manhattan distance as heuristic measure
-        cost = 0
-
-        start_coord = self.discrete_env.NodeIdToGridCoord(start_id)[:2]
-        goal_coord  = self.discrete_env.NodeIdToGridCoord(goal_id)[:2]
-
-        diffCoord = goal_coord - start_coord
-
-        for i in range(len(diffCoord)):
-            cost = cost + abs(diffCoord[i])
-            cost = cost * self.discrete_env.resolution[i]
-
-        return cost
+#        cost = 0
+#
+#        start_coord = self.discrete_env.NodeIdToGridCoord(start_id)[:2]
+#        goal_coord  = self.discrete_env.NodeIdToGridCoord(goal_id)[:2]
+#
+#        diffCoord = goal_coord - start_coord
+#
+#        for i in range(len(diffCoord)):
+#            cost = cost + abs(diffCoord[i])
+#            cost = cost * self.discrete_env.resolution[i]
+#
+#        return cost
 
 
