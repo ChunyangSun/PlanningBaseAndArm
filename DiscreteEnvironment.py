@@ -122,7 +122,7 @@ class DiscreteEnvironment(object):
     def ConfigurationToGridCoord(self, config):
 
         config_diff = self.to_dec(config)-self.lower_limits
-        dtype_coord = config_diff/self.lim_ranges*self.dtype_num_cells
+        dtype_coord = config_diff/self.lim_ranges*self.dtype_num_cells % self.dtype_num_cells
 
         for i in xrange(dtype_coord.size):
             if self.dtype == np.dtype(dec.Decimal):
