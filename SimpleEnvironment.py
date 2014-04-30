@@ -72,7 +72,7 @@ class SimpleEnvironment(object):
 
         return footprint
 
-    def GenerateControlResultConfig(self, start_config, control):
+    def GenerateControlResultConfigNoSnap(self, start_config, control):
         ul = control.ul
         ur = control.ur
         dt = control.dt
@@ -85,14 +85,18 @@ class SimpleEnvironment(object):
 
         config += dt * numpy.array([xdot, ydot, tdot])
 
+        return config
+
+    def GenerateControlResultConfig(self, start_config, control):
+
+        config = self.GenerateControlResultConfigNoSnap(start_config, control)
+
         coord = self.discrete_env.ConfigurationToGridCoord(config)
         coord[2] = coord[2] % self.discrete_env.num_cells[2]
 
         config = self.discrete_env.GridCoordToConfiguration(coord)
 
         return config
-
-
 
     def PlotActionFootprints(self, idx):
 
@@ -123,7 +127,7 @@ class SimpleEnvironment(object):
         grid_coordinate = self.discrete_env.ConfigurationToGridCoord(wc)
 
         # Iterate through each possible starting orientation
-        for idx in range(int(self.discrete_env.num_cells[2])+1):
+        for idx in range(int(self.discrete_env.num_cells[2])):
             self.actions[idx] = []
             grid_coordinate[2] = idx
             start_config = self.discrete_env.GridCoordToConfiguration(grid_coordinate)
@@ -131,13 +135,13 @@ class SimpleEnvironment(object):
             # Add four types of actions
 
             move_config = [0.,0.,0.]
-            dt = 1.0
+            dt = 0.0
             while numpy.linalg.norm(move_config[:2]) == 0:
-                move_config = self.GenerateControlResultConfig(start_config, Control(1.,1.,dt))
                 dt += 1.0
+                move_config = self.GenerateControlResultConfigNoSnap(start_config, Control(1.,1.,dt))
             dt_x = move_config[0]/self.resolution[0]
             dt_y = move_config[1]/self.resolution[1]
-            move_duration = 1. / max(abs(dt_x), abs(dt_y))
+            move_duration = dt / max(abs(dt_x), abs(dt_y))
 
             # Move forward
             control = Control(1.,1.,move_duration)
@@ -226,19 +230,19 @@ class SimpleEnvironment(object):
 
     def ComputeHeuristicCost(self, start_id, goal_id):
 
-        return self.ComputeDistance(start_id, goal_id)
-#        cost = 0
-#
-#        start_config = self.discrete_env.NodeIdToConfiguration(start_id)
-#        end_config = self.discrete_env.NodeIdToConfiguration(goal_id)
-#
-#        dxy = (end_config - start_config)[:2]
-#        cost = numpy.linalg.norm(dxy)
+#        return self.ComputeDistance(start_id, goal_id)
+        cost = 0
+
+        start_config = self.discrete_env.NodeIdToConfiguration(start_id)
+        end_config = self.discrete_env.NodeIdToConfiguration(goal_id)
+
+        dxy = (end_config - start_config)[:2]
+        cost = numpy.linalg.norm(dxy)
 #        cost += numpy.fabs(end_config[2] - start_config[2])
 
-#        ANGLE_WEIGHT = 0.0
-#        alpha = numpy.arctan2(dxy[1], dxy[0])
-#        cost += numpy.fabs(alpha + start_config[2]) * ANGLE_WEIGHT
+        ANGLE_WEIGHT = 0.001
+        alpha = numpy.arctan2(dxy[1], dxy[0])
+        cost += numpy.fabs(alpha - start_config[2]) * ANGLE_WEIGHT
 
         # Calculates Manhattan distance as heuristic measure
 #        cost = 0
@@ -252,6 +256,6 @@ class SimpleEnvironment(object):
 #            cost = cost + abs(diffCoord[i])
 #            cost = cost * self.discrete_env.resolution[i]
 #
-#        return cost
+        return cost
 
 
