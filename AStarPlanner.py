@@ -54,7 +54,7 @@ class AStarPlanner(object):
         # Start from start node
         self.visited.add(start)
         self.cost_optimal[start] = denv.to_dec(0.0)
-        self.came_from[start] = [-1, Action(Control(0,0,0), [start_config])]
+        self.came_from[start] = [-1, Action(Control(0,0,0), [start_config - start_config])]
         Q[start] = self.cost_to_go(start,goal)
 
         # And process nodes in the order of heuristic cost
