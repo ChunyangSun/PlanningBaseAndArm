@@ -24,7 +24,7 @@ class SimpleEnvironment(object):
         self.herb = herb
         self.robot = herb.robot
         self.env = self.robot.GetEnv()
-        self.table = self.env.GetBodies()[0] # table
+        self.table = self.env.GetBodies()[1] # table
         self.boundary_limits = [[-5., -5., -numpy.pi], [5., 5., numpy.pi]]
         self.lower_limits, self.upper_limits = self.boundary_limits
         self.discrete_env = DiscreteEnvironment(resolution, self.lower_limits, self.upper_limits)

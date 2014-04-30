@@ -191,21 +191,19 @@ class GraspPlanner(object):
 
             self.robot.SetTransform(base_pose)
             self.robot.SetDOFValues(all_config)
-
-            # pose = numpy.array([0,0,0,0,0,0,0])
             
         # IPython.embed()
         idx = raw_input("Choose from goal index 0, 1, 2, 3, 4")
         goal_chosen = goals[int(idx)]
-        Tgrasp,base_pose, all_config = goal
-        self.robot.SetTransform(base_pose)
-        self.robot.SetDOFValues(all_config)
-        arm_config = self.robot.GetActiveDOFValues()
+        Tgrasp, pose, all_config = goal_chosen
+        matrix = openravepy.matrixFromPose(pose)
+        aa = openravepy.axisAngleFromRotationMatrix(matrix)
+        base_pose = [matrix[0,3], matrix[1,3], aa[2]] # x, y , theta 
 
-        return base_pose[4:], arm_config # base_pose [x, y] grasp_config [7 dof values]
+        return base_pose, all_config[11:18] # base_pose [x, y] grasp_config [7 dof values]
 
     def PlanToGrasp(self, obj):
-
+        start_pose = numpy.array(self.base_planner.planning_env.herb.GetCurrentConfiguration())
         # Next select a pose for the base and an associated ik for the arm
         base_pose, grasp_config = self.GetBasePoseForObjectGrasp(obj)
 
@@ -213,20 +211,23 @@ class GraspPlanner(object):
             print 'Failed to find solution'
             exit()
 
-        # Now plan to the base pose
-        start_pose = numpy.array(self.base_planner.planning_env.herb.GetCurrentConfiguration())
         base_plan = self.base_planner.Plan(start_pose, base_pose)
         base_traj = self.base_planner.planning_env.herb.ConvertPlanToTrajectory(base_plan)
-
+        
+        raw_input('press ENTER to execute base trajectory')
         print 'Executing base trajectory'
+        self.base_planner.planning_env.herb.SetCurrentConfiguration(start_pose)
         self.base_planner.planning_env.herb.ExecuteTrajectory(base_traj)
 
         # Now plan the arm to the grasp configuration
-      
         start_config = numpy.array(self.arm_planner.planning_env.herb.GetCurrentConfiguration())
+   
+        IPython.embed() # error below 
+
         arm_plan = self.arm_planner.Plan(start_config, grasp_config)
         arm_traj = self.arm_planner.planning_env.herb.ConvertPlanToTrajectory(arm_plan)
 
+        raw_input('press ENTER to execute arm trajectory')
         print 'Executing arm trajectory'
         self.arm_planner.planning_env.herb.ExecuteTrajectory(arm_traj)
 
