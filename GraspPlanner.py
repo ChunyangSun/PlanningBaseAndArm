@@ -7,7 +7,7 @@ class GraspModel(object):
         self.v = [0, 0] # volumeG range
         self.i = [0, 0] # isotropy range
         self.raw_scores = []
-        self.robot = robot 
+        self.robot = robot
         self.obj = obj
 
         self.gmodel = openravepy.databases.grasping.GraspingModel(self.robot, self.obj)
@@ -22,10 +22,10 @@ class GraspModel(object):
 
 
     def order_grasps(self):
-        """ order the grasps - call eval grasp on each, set the 'performance' index, and sort 
-            call get_raw_score_range and combine the scores of each item 
-            sort the scores from high to low 
-            output: a list of grasps starting from the best 
+        """ order the grasps - call eval grasp on each, set the 'performance' index, and sort
+            call get_raw_score_range and combine the scores of each item
+            sort the scores from high to low
+            output: a list of grasps starting from the best
         """
 
         # get raw scores before sorting
@@ -47,7 +47,7 @@ class GraspModel(object):
 
     def get_raw_score_range(self):
         """  inumpyut: self.grasps orginal, call eval_grasp to get scores
-             output: range of scores for each evaluation items  
+             output: range of scores for each evaluation items
         """
         # go this loop to get raw scores and find the range of the raw scores
         for grasp in self.grasps_ordered:
@@ -62,8 +62,8 @@ class GraspModel(object):
         self.i = [min(all_isotropy), max(all_isotropy)]
 
     def eval_grasp(self, grasp):
-        """ function to evaluate grasps, returns a score, which is some metric of the grasp, 
-            higher score should be a better grasp 
+        """ function to evaluate grasps, returns a score, which is some metric of the grasp,
+            higher score should be a better grasp
         """
 
         with self.robot:
@@ -78,13 +78,13 @@ class GraspModel(object):
             for i, c in enumerate(contacts):
               pos = c[0:3] - obj_position
               dir = -c[3:] #this is already a unit vector
-              
+
               # fill G
               torque = numpy.cross(pos, dir)
               wrench = numpy.concatenate([dir, torque])
 
               G[:, i] = wrench
-            
+
             # Use SVD to compute minimum score
             U, S, V = numpy.linalg.svd(G)
             sigmaMin = abs(S[-1])
@@ -143,16 +143,16 @@ class GraspPlanner(object):
 
         base_pose = None
         grasp_config = None
-       
+
         ###################################################################
         # TODO: Here you will fill in the function to compute
-        #  a base pose and associated grasp config for the 
+        #  a base pose and associated grasp config for the
         #  grasping the bottle
         ###################################################################
         self.irmodel = openravepy.databases.inversereachability.InverseReachabilityModel(self.robot)
 
         loaded = self.irmodel.load()
-        if loaded: 
+        if loaded:
             densityfn,samplerfn,bounds = self.irmodel.computeBaseDistribution(Tgrasp)
         # densityfn: gaussian kernel density function taking poses of openrave quaternion type, returns probabilities
         # samplerfn: gaussian kernel sampler function taking number of sample and weight, returns robot base poses and joint states
@@ -162,7 +162,7 @@ class GraspPlanner(object):
         numfailures = 0
         starttime = time.time()
         timeout = 5000
-        N = 5 
+        N = 5
 
         with self.robot:
             while len(goals) < N:
@@ -191,16 +191,29 @@ class GraspPlanner(object):
 
             self.robot.SetTransform(base_pose)
             self.robot.SetDOFValues(all_config)
-            
+
         # IPython.embed()
-        idx = raw_input("Choose from goal index 0, 1, 2, 3, 4")
+        idx = raw_input("Choose from goal index 0, 1, 2, 3, 4: ")
         goal_chosen = goals[int(idx)]
         Tgrasp, pose, all_config = goal_chosen
         matrix = openravepy.matrixFromPose(pose)
         aa = openravepy.axisAngleFromRotationMatrix(matrix)
-        base_pose = [matrix[0,3], matrix[1,3], aa[2]] # x, y , theta 
+        base_pose = [matrix[0,3], matrix[1,3], aa[2]] # x, y , theta
 
         return base_pose, all_config[11:18] # base_pose [x, y] grasp_config [7 dof values]
+
+    def Relax(self):
+    	right_relaxed = [ 5.65, -1.76, -0.26,  1.96, -1.15 , 0.87, -1.43 ]
+        left_relaxed = [ 0.64, -1.76,  0.26,  1.96,  1.16,  0.87,  1.43 ]
+        right_manip = self.robot.GetManipulator('right_wam')
+        self.robot.SetActiveDOFs(right_manip.GetArmIndices())
+        self.robot.SetActiveDOFValues(right_relaxed)
+
+        left_manip = self.robot.GetManipulator('left_wam')
+        self.robot.SetActiveDOFs(left_manip.GetArmIndices())
+        self.robot.SetActiveDOFValues(left_relaxed)
+
+
 
     def PlanToGrasp(self, obj):
         start_pose = numpy.array(self.base_planner.planning_env.herb.GetCurrentConfiguration())
@@ -211,9 +224,11 @@ class GraspPlanner(object):
             print 'Failed to find solution'
             exit()
 
+        self.Relax()
+
         base_plan = self.base_planner.Plan(start_pose, base_pose)
         base_traj = self.base_planner.planning_env.herb.ConvertPlanToTrajectory(base_plan)
-        
+
         raw_input('press ENTER to execute base trajectory')
         print 'Executing base trajectory'
         self.base_planner.planning_env.herb.SetCurrentConfiguration(start_pose)
@@ -221,8 +236,6 @@ class GraspPlanner(object):
 
         # Now plan the arm to the grasp configuration
         start_config = numpy.array(self.arm_planner.planning_env.herb.GetCurrentConfiguration())
-   
-        IPython.embed() # error below 
 
         arm_plan = self.arm_planner.Plan(start_config, grasp_config)
         arm_traj = self.arm_planner.planning_env.herb.ConvertPlanToTrajectory(arm_plan)
@@ -234,4 +247,4 @@ class GraspPlanner(object):
         # Grasp the bottle
         task_manipulation = openravepy.interfaces.TaskManipulation(self.robot)
         task_manipulation.CloseFingers()
-    
+
