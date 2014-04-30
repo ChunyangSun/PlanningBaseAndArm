@@ -115,8 +115,7 @@ if __name__ == "__main__":
     planner = GraspPlanner(herb.robot, base_planner, arm_planner)
     planner.PlanToGrasp(bottle)
 
-    import IPython
-    IPython.embed()
+    raw_input('Press any key to quit.')
 
 
         
