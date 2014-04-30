@@ -193,7 +193,7 @@ class GraspPlanner(object):
             self.robot.SetDOFValues(all_config)
             
         # IPython.embed()
-        idx = raw_input("Choose from goal index 0, 1, 2, 3, 4")
+        idx = raw_input("Choose from goal index 0, 1, 2, 3, 4: ")
         goal_chosen = goals[int(idx)]
         Tgrasp, pose, all_config = goal_chosen
         matrix = openravepy.matrixFromPose(pose)
@@ -222,8 +222,6 @@ class GraspPlanner(object):
         # Now plan the arm to the grasp configuration
         start_config = numpy.array(self.arm_planner.planning_env.herb.GetCurrentConfiguration())
    
-        IPython.embed() # error below 
-
         arm_plan = self.arm_planner.Plan(start_config, grasp_config)
         arm_traj = self.arm_planner.planning_env.herb.ConvertPlanToTrajectory(arm_plan)
 
